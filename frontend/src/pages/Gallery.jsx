@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { userAPI } from '../services/api';
+import { generateAPI } from '../services/api';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import {
   PhotoIcon,
@@ -26,10 +27,26 @@ const Gallery = () => {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [presets, setPresets] = useState([]);
+  const [selectedPreset, setSelectedPreset] = useState('all');
+
+  useEffect(() => {
+    // Load presets for filtering
+    const loadPresets = async () => {
+      try {
+        const res = await generateAPI.getPresets();
+        const list = res?.data?.presets || [];
+        setPresets(list);
+      } catch (e) {
+        console.error('Failed to load presets for gallery filter:', e);
+      }
+    };
+    loadPresets();
+  }, []);
 
   useEffect(() => {
     fetchGenerations(true);
-  }, [searchTerm, filterStatus, sortBy]);
+  }, [searchTerm, filterStatus, sortBy, selectedPreset]);
 
   const fetchGenerations = async (reset = false) => {
     try {
@@ -41,15 +58,17 @@ const Gallery = () => {
       }
 
       const currentPage = reset ? 1 : page;
-      const response = await userAPI.getGenerations({
+      const res = await userAPI.getGenerations({
         page: currentPage,
         limit: 12,
         search: searchTerm,
         status: filterStatus === 'all' ? undefined : filterStatus,
-        sortBy: sortBy
+        sortBy: sortBy,
+        preset: selectedPreset === 'all' ? undefined : selectedPreset
       });
 
-      const newGenerations = response.generations || [];
+      const data = res?.data || {};
+      const newGenerations = data.generations || [];
       
       if (reset) {
         setGenerations(newGenerations);
@@ -57,7 +76,7 @@ const Gallery = () => {
         setGenerations(prev => [...prev, ...newGenerations]);
       }
       
-      setHasMore(response.pagination?.hasNext || false);
+      setHasMore(data.pagination?.hasNext || false);
       if (!reset) {
         setPage(prev => prev + 1);
       }
@@ -175,7 +194,7 @@ const Gallery = () => {
 
         {/* Filters and Search */}
         <div className="mb-8 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             {/* Search */}
             <div className="md:col-span-2">
               <div className="relative">
@@ -201,6 +220,20 @@ const Gallery = () => {
                 <option value="completed">Completed</option>
                 <option value="processing">Processing</option>
                 <option value="failed">Failed</option>
+              </select>
+            </div>
+
+            {/* Preset Filter */}
+            <div>
+              <select
+                value={selectedPreset}
+                onChange={(e) => setSelectedPreset(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                <option value="all">All Presets</option>
+                {presets.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
               </select>
             </div>
 
