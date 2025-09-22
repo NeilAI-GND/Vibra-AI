@@ -1,0 +1,7 @@
+id,name,description,category,main_prompt,negative_prompt,style,user_tier
+portrait-enhancement,Portrait Enhancement,Professional headshot transformation,Portrait,"professional portrait photo, sharp focus, soft lighting, 85mm lens, natural skin tones, studio background","blurry, low quality, distorted",photographic,free
+artistic-landscape,Artistic Landscape,Beautiful artistic landscape scenes,Landscape,"beautiful landscape, artistic style, vibrant colors, detailed scenery, professional photography","people, portraits, indoor, urban, city",artistic,free
+modern-architecture,Modern Architecture,Contemporary architectural designs,Architecture,"modern architecture, contemporary design, clean lines, professional architectural photography","people, nature, vintage, old, traditional",architectural,free
+fantasy-character,Fantasy Character,Create a fantasy character illustration,Character,"highly detailed fantasy character, cinematic lighting, intricate armor, dynamic pose, 4k","low detail, messy, dull colors",digital,free
+abstract-geometry,Abstract Geometry,Geometric abstract art with bold shapes,Abstract,"bold geometric shapes, vibrant color palette, symmetric composition, high contrast","realism, faces, text",abstract,free
+product-shot,Product Shot,Studio product photography style,Product,"studio product shot, soft diffused lighting, seamless background, high detail, 50mm lens","shadows, reflections, fingerprints",photographic,free
