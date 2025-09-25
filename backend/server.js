@@ -9,7 +9,37 @@ const mongoSanitize = require('express-mongo-sanitize');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const path = require('path');
+const https = require('https');
+const tls = require('tls');
 require('dotenv').config();
+
+// Configure TLS settings to handle SSL issues with external APIs (Google Generative AI)
+// This addresses the SSL error: tlsv1 alert internal error
+const originalCreateSecureContext = tls.createSecureContext;
+tls.createSecureContext = function(options) {
+  const context = originalCreateSecureContext.call(this, options);
+  context.context.setOptions(
+    require('constants').SSL_OP_NO_SSLv2 |
+    require('constants').SSL_OP_NO_SSLv3 |
+    require('constants').SSL_OP_NO_TLSv1 |
+    require('constants').SSL_OP_NO_TLSv1_1
+  );
+  return context;
+};
+
+// Configure HTTPS global agent for better SSL/TLS handling
+https.globalAgent.options.secureProtocol = 'TLSv1_2_method';
+https.globalAgent.options.ciphers = [
+  'ECDHE-RSA-AES128-GCM-SHA256',
+  'ECDHE-RSA-AES256-GCM-SHA384',
+  'ECDHE-RSA-AES128-SHA256',
+  'ECDHE-RSA-AES256-SHA384'
+].join(':');
+
+// Set minimum TLS version
+tls.DEFAULT_MIN_VERSION = 'TLSv1.2';
+
+console.log('🔒 TLS configuration applied for external API connections');
 
 // Import routes
 const authRoutes = require('./routes/auth');

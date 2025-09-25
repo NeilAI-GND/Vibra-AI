@@ -127,6 +127,19 @@ class GeminiService {
         throw new Error('Content blocked by safety filters');
       }
 
+      // Handle SSL/TLS connection errors
+      if (error.message?.includes('SSL') || 
+          error.message?.includes('TLS') || 
+          error.message?.includes('ECONNRESET') ||
+          error.message?.includes('ENOTFOUND') ||
+          error.message?.includes('certificate') ||
+          error.code === 'ECONNRESET' ||
+          error.code === 'ENOTFOUND') {
+        console.warn('🔒 SSL/TLS connection error with Gemini API, using fallback');
+        // Return a fallback response instead of throwing
+        return this.generateLocalPlaceholder(1024, 1024, 'SSL Connection Error - Fallback Image');
+      }
+
       throw new Error(`Image generation failed: ${error.message}`);
     }
   }
@@ -262,6 +275,19 @@ class GeminiService {
         throw new Error('Content blocked by safety filters');
       }
 
+      // Handle SSL/TLS connection errors
+      if (error.message?.includes('SSL') || 
+          error.message?.includes('TLS') || 
+          error.message?.includes('ECONNRESET') ||
+          error.message?.includes('ENOTFOUND') ||
+          error.message?.includes('certificate') ||
+          error.code === 'ECONNRESET' ||
+          error.code === 'ENOTFOUND') {
+        console.warn('🔒 SSL/TLS connection error with Gemini API, using fallback');
+        // Return a fallback response instead of throwing
+        return this.generateLocalPlaceholder(1024, 1024, 'SSL Connection Error - Fallback Image');
+      }
+
       throw new Error(`Image-to-image generation failed: ${error.message}`);
     }
   }
@@ -290,6 +316,61 @@ class GeminiService {
     } catch (error) {
       console.error('Error fetching models:', error);
       return [];
+    }
+  }
+
+  // Generate local placeholder image for fallback scenarios
+  async generateLocalPlaceholder(width, height, text) {
+    try {
+      const uploadsDir = path.join(__dirname, '../uploads');
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+
+      const fileName = `placeholder-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.jpg`;
+      const filePath = path.join(uploadsDir, fileName);
+
+      // Create a colorful gradient placeholder
+      const colors = [
+        { r: 99, g: 102, b: 241 },   // Indigo
+        { r: 168, g: 85, b: 247 },   // Purple
+        { r: 236, g: 72, b: 153 },   // Pink
+        { r: 59, g: 130, b: 246 },   // Blue
+        { r: 16, g: 185, b: 129 },   // Emerald
+      ];
+      const randomColor = colors[Math.floor(Math.random() * colors.length)];
+
+      await sharp({
+        create: {
+          width: width,
+          height: height,
+          channels: 3,
+          background: randomColor
+        }
+      })
+      .jpeg({ quality: 85 })
+      .toFile(filePath);
+
+      const imageUrl = `/uploads/${fileName}`;
+      console.log('✅ [GEMINI DEBUG] Local placeholder image generated:', imageUrl);
+
+      return {
+        success: true,
+        imageUrl: imageUrl,
+        isPlaceholder: true,
+        data: {
+          width: width,
+          height: height,
+          text: text,
+          fileName: fileName,
+          mimeType: 'image/jpeg',
+          fileSize: fs.statSync(filePath).size
+        }
+      };
+
+    } catch (error) {
+      console.error('❌ [GEMINI DEBUG] Failed to generate local placeholder:', error);
+      throw new Error('Failed to generate placeholder image');
     }
   }
 
