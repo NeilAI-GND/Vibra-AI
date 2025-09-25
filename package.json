@@ -7,7 +7,7 @@
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "server": "cd backend && npm run dev",
     "client": "cd frontend && npm start",
-    "build": "cd frontend && node ./scripts/build.mjs",
+    "build": "cd frontend && rm -rf node_modules package-lock.json && npm install && node ./scripts/build.mjs",
     "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install",
     "start": "node index.js",
     "postinstall": "cd backend && npm install"
