@@ -2,7 +2,6 @@ services:
   - type: web
     name: vibra-ai-backend
     env: node
-    runtime: node 22
     plan: free
     buildCommand: npm install && cd backend && npm install
     startCommand: npm start
@@ -11,4 +10,6 @@ services:
         value: production
       - key: PORT
         value: 10000
+      - key: NODE_VERSION
+        value: 22.16.0
     healthCheckPath: /health

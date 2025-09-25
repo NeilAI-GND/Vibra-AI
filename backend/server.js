@@ -14,121 +14,7 @@ const tls = require('tls');
 const dns = require('dns');
 require('dotenv').config();
 
-// Aggressive SSL bypass for Node.js environment (for production SSL issues)
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-process.env.HTTPS_PROXY = '';
-process.env.HTTP_PROXY = '';
-
-// Configure TLS settings to handle SSL issues with external APIs (Google Generative AI)
-// This addresses the SSL error: tlsv1 alert internal error
-const originalCreateSecureContext = tls.createSecureContext;
-tls.createSecureContext = function(options) {
-  const context = originalCreateSecureContext.call(this, options);
-  context.context.setOptions(
-    require('constants').SSL_OP_NO_SSLv2 |
-    require('constants').SSL_OP_NO_SSLv3 |
-    require('constants').SSL_OP_NO_TLSv1 |
-    require('constants').SSL_OP_NO_TLSv1_1
-  );
-  return context;
-};
-
-// Configure HTTPS global agent for better SSL/TLS handling
-https.globalAgent.options.secureProtocol = 'TLS_method';
-https.globalAgent.options.minVersion = 'TLSv1.2';
-https.globalAgent.options.rejectUnauthorized = false;
-https.globalAgent.options.checkServerIdentity = () => undefined;
-https.globalAgent.options.ciphers = [
-  'TLS_AES_128_GCM_SHA256',
-  'TLS_AES_256_GCM_SHA384',
-  'TLS_CHACHA20_POLY1305_SHA256',
-  'ECDHE-ECDSA-AES128-GCM-SHA256',
-  'ECDHE-ECDSA-AES256-GCM-SHA384',
-  'ECDHE-RSA-AES128-GCM-SHA256',
-  'ECDHE-RSA-AES256-GCM-SHA384'
-].join(':');
-
-// Set minimum TLS version and additional SSL options
-tls.DEFAULT_MIN_VERSION = 'TLSv1.2';
-https.globalAgent.options.secureOptions = require('constants').SSL_OP_NO_SSLv2 | require('constants').SSL_OP_NO_SSLv3;
-
-// Additional SSL bypass for production environments (Render, Heroku, etc.)
-if (process.env.NODE_ENV === 'production' || process.env.RENDER || process.env.RENDER_SERVICE_ID) {
-  // Override default HTTPS agent for production SSL issues
-  const Agent = require('https').Agent;
-  const originalAgent = https.globalAgent;
-  
-  https.globalAgent = new Agent({
-    rejectUnauthorized: false,
-    checkServerIdentity: () => undefined,
-    secureProtocol: 'TLS_method',
-    minVersion: 'TLSv1.2',
-    ciphers: [
-      'TLS_AES_128_GCM_SHA256',
-      'TLS_AES_256_GCM_SHA384',
-      'TLS_CHACHA20_POLY1305_SHA256',
-      'ECDHE-ECDSA-AES128-GCM-SHA256',
-      'ECDHE-ECDSA-AES256-GCM-SHA384',
-      'ECDHE-RSA-AES128-GCM-SHA256',
-      'ECDHE-RSA-AES256-GCM-SHA384'
-    ].join(':'),
-    secureOptions: require('constants').SSL_OP_NO_SSLv2 | require('constants').SSL_OP_NO_SSLv3,
-    timeout: 30000,
-    keepAlive: true
-  });
-  
-  console.log('🔓 Production SSL bypass enabled for external API compatibility (TLS 1.2+ with ECDSA/RSA & TLS1.3 ciphers)');
-}
-
-// Override global fetch for Google Generative AI SDK with SSL bypass
-if (process.env.NODE_ENV === 'production' || process.env.RENDER || process.env.RENDER_SERVICE_ID) {
-  const originalFetch = global.fetch;
-  const https = require('https');
-  
-  // Create a custom HTTPS agent with SSL bypass
-  const customAgent = new https.Agent({
-    rejectUnauthorized: false,
-    checkServerIdentity: () => undefined,
-    secureProtocol: 'TLS_method',
-    minVersion: 'TLSv1.2',
-    ciphers: [
-      'TLS_AES_128_GCM_SHA256',
-      'TLS_AES_256_GCM_SHA384',
-      'TLS_CHACHA20_POLY1305_SHA256',
-      'ECDHE-ECDSA-AES128-GCM-SHA256',
-      'ECDHE-ECDSA-AES256-GCM-SHA384',
-      'ECDHE-RSA-AES128-GCM-SHA256',
-      'ECDHE-RSA-AES256-GCM-SHA384'
-    ].join(':'),
-    timeout: 60000,
-    keepAlive: true,
-    maxSockets: 50,
-    // Force IPv4 to avoid potential IPv6 TLS handshake issues
-    lookup: (hostname, opts, cb) => dns.lookup(hostname, { family: 4 }, cb)
-  });
-  
-  // Override fetch for Google AI API calls
-  global.fetch = async (url, options = {}) => {
-    if (typeof url === 'string' && url.includes('generativelanguage.googleapis.com')) {
-      console.log('🔓 Using SSL bypass for Google Generative AI API call with TLS 1.2+ and IPv4');
-      
-      // Use node-fetch with custom agent for Google AI API
-      const fetch = require('node-fetch');
-      return fetch(url, {
-        ...options,
-        agent: customAgent,
-        timeout: 60000
-      });
-    }
-    
-    // Use original fetch for other requests
-    return originalFetch ? originalFetch(url, options) : require('node-fetch')(url, options);
-  };
-  
-  console.log('🔓 Custom fetch with SSL bypass configured for Google AI API (TLS 1.2+ with ECDSA/RSA & TLS1.3 ciphers, IPv4 forced)');
-}
-
-console.log('🔒 TLS configuration applied for external API connections');
+// Default TLS settings in Node are sufficient; avoid global overrides that can cause handshake issues.
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -313,9 +199,38 @@ const server = app.listen(PORT, () => {
 🚀 Vibra AI Server is running!
 📍 Environment: ${process.env.NODE_ENV || 'development'}
 🌐 Port: ${PORT}
+🟢 Node: ${process.version} (OpenSSL: ${process.versions.openssl})
 📊 Health Check: http://localhost:${PORT}/health
 🔗 API Base: http://localhost:${PORT}/api
   `);
 });
 
 module.exports = app;
+
+// Targeted fetch override for Google Generative AI API to avoid global TLS hacks
+if (process.env.NODE_ENV === 'production' || process.env.RENDER || process.env.RENDER_SERVICE_ID) {
+  const originalFetch = global.fetch;
+  const dns = require('dns');
+
+  const customAgent = new https.Agent({
+    keepAlive: true,
+    timeout: 60000,
+    maxSockets: 50,
+    // Force IPv4 to avoid potential IPv6 handshake/routing issues on some platforms
+    lookup: (hostname, opts, cb) => dns.lookup(hostname, { family: 4 }, cb)
+  });
+
+  global.fetch = async (url, options = {}) => {
+    if (typeof url === 'string' && url.includes('generativelanguage.googleapis.com')) {
+      const fetch = require('node-fetch');
+      return fetch(url, {
+        ...options,
+        agent: customAgent,
+        timeout: 60000
+      });
+    }
+    return originalFetch ? originalFetch(url, options) : require('node-fetch')(url, options);
+  };
+
+  console.log('🔒 Targeted HTTPS agent applied for Google AI API (IPv4, keep-alive). No global TLS overrides.');
+}

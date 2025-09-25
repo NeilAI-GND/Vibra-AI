@@ -26,11 +26,11 @@
     "vite": "^5.0.8"
   },
   "scripts": {
-    "dev": "npx vite",
-    "build": "npx vite build",
+    "dev": "node node_modules/vite/bin/vite.js",
+    "build": "node node_modules/vite/bin/vite.js build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "npx vite preview",
-    "start": "npx vite"
+    "preview": "node node_modules/vite/bin/vite.js preview",
+    "start": "node node_modules/vite/bin/vite.js"
   },
   "eslintConfig": {
     "extends": [
