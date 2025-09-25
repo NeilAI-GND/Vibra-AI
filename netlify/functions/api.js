@@ -1,7 +1,6 @@
 const express = require('express');
-const serverless = require('serverless-http');
 const cors = require('cors');
-const path = require('path');
+const serverless = require('serverless-http');
 
 // Load environment variables
 require('dotenv').config();
@@ -9,36 +8,42 @@ require('dotenv').config();
 // Import database connection
 const connectDB = require('../../backend/config/database');
 
-// Import backend routes
+// Import routes
 const authRoutes = require('../../backend/routes/auth');
-const generateRoutes = require('../../backend/routes/generate');
-const promptRoutes = require('../../backend/routes/prompts');
 const userRoutes = require('../../backend/routes/user');
-
-// Import middleware
-const errorHandler = require('../../backend/middleware/errorHandler');
-const securityMiddleware = require('../../backend/middleware/security');
+const chatRoutes = require('../../backend/routes/chat');
+const uploadRoutes = require('../../backend/routes/upload');
 
 const app = express();
 
-// Initialize database connection for serverless
-let isConnected = false;
+// Database connection state
+let isDbConnected = false;
 
-const initializeDatabase = async () => {
-  if (!isConnected) {
+// Initialize database connection for serverless environment
+async function initializeDatabase() {
+  if (!isDbConnected) {
     try {
+      console.log('🔄 Initializing database connection...');
+      console.log('📊 Environment check:', {
+        NODE_ENV: process.env.NODE_ENV,
+        MONGODB_URI: process.env.MONGODB_URI ? '✅ Set' : '❌ Missing',
+        JWT_SECRET: process.env.JWT_SECRET ? '✅ Set' : '❌ Missing'
+      });
+      
+      if (!process.env.MONGODB_URI) {
+        throw new Error('MONGODB_URI environment variable is not set');
+      }
+      
       await connectDB();
-      isConnected = true;
-      console.log('Database connected for serverless function');
+      isDbConnected = true;
+      console.log('✅ Database connected successfully');
     } catch (error) {
-      console.error('Database connection failed:', error);
+      console.error('❌ Database connection failed:', error.message);
+      console.error('🔍 Full error:', error);
       throw error;
     }
   }
-};
-
-// Apply security middleware
-app.use(securityMiddleware);
+}
 
 // CORS configuration
 app.use(cors({
@@ -54,31 +59,66 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Static file serving for uploads
-app.use('/uploads', express.static(path.join(__dirname, '../../backend/uploads')));
-
-// API routes
-app.use('/auth', authRoutes);
-app.use('/generate', generateRoutes);
-app.use('/prompts', promptRoutes);
-app.use('/user', userRoutes);
-
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV,
+    database: isDbConnected ? 'connected' : 'disconnected'
+  });
 });
 
-// Error handling
-app.use(errorHandler);
+// API routes
+app.use('/api/auth', authRoutes);
+app.use('/api/user', userRoutes);
+app.use('/api/chat', chatRoutes);
+app.use('/api/upload', uploadRoutes);
 
-// Wrap the app with database initialization
+// Error handling middleware
+app.use((error, req, res, next) => {
+  console.error('🚨 Unhandled error:', error);
+  res.status(500).json({
+    error: 'Internal server error',
+    message: error.message,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Wrap the app for serverless
 const handler = serverless(app);
 
 // Export the serverless function with database initialization
 module.exports.handler = async (event, context) => {
-  // Initialize database connection
-  await initializeDatabase();
-  
-  // Handle the request
-  return handler(event, context);
+  try {
+    console.log('🚀 Function invoked:', {
+      path: event.path,
+      method: event.httpMethod,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Initialize database connection
+    await initializeDatabase();
+    
+    // Handle the request
+    const result = await handler(event, context);
+    console.log('✅ Function completed successfully');
+    return result;
+  } catch (error) {
+    console.error('💥 Function error:', error);
+    return {
+      statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
+      },
+      body: JSON.stringify({
+        error: 'Function execution failed',
+        message: error.message,
+        timestamp: new Date().toISOString()
+      })
+    };
+  }
 };
