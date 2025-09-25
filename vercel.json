@@ -3,7 +3,7 @@
   "name": "vibra-ai",
   "buildCommand": "npm run build",
   "outputDirectory": "frontend/dist",
-  "installCommand": "npm install",
+  "installCommand": "npm install && npm install --prefix frontend",
   "devCommand": "npm run dev",
   "framework": null,
   "rewrites": [
@@ -33,5 +33,10 @@
   ],
   "env": {
     "NODE_ENV": "production"
+  },
+  "functions": {
+    "api/**": {
+      "runtime": "nodejs22.x"
+    }
   }
 }

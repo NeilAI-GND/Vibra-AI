@@ -11,6 +11,7 @@ const MongoStore = require('connect-mongo');
 const path = require('path');
 const https = require('https');
 const tls = require('tls');
+const dns = require('dns');
 require('dotenv').config();
 
 // Aggressive SSL bypass for Node.js environment (for production SSL issues)
@@ -33,16 +34,18 @@ tls.createSecureContext = function(options) {
 };
 
 // Configure HTTPS global agent for better SSL/TLS handling
-https.globalAgent.options.secureProtocol = 'TLSv1_2_method';
+https.globalAgent.options.secureProtocol = 'TLS_method';
+https.globalAgent.options.minVersion = 'TLSv1.2';
 https.globalAgent.options.rejectUnauthorized = false;
 https.globalAgent.options.checkServerIdentity = () => undefined;
 https.globalAgent.options.ciphers = [
+  'TLS_AES_128_GCM_SHA256',
+  'TLS_AES_256_GCM_SHA384',
+  'TLS_CHACHA20_POLY1305_SHA256',
+  'ECDHE-ECDSA-AES128-GCM-SHA256',
+  'ECDHE-ECDSA-AES256-GCM-SHA384',
   'ECDHE-RSA-AES128-GCM-SHA256',
-  'ECDHE-RSA-AES256-GCM-SHA384',
-  'ECDHE-RSA-AES128-SHA256',
-  'ECDHE-RSA-AES256-SHA384',
-  'AES128-GCM-SHA256',
-  'AES256-GCM-SHA384'
+  'ECDHE-RSA-AES256-GCM-SHA384'
 ].join(':');
 
 // Set minimum TLS version and additional SSL options
@@ -58,13 +61,23 @@ if (process.env.NODE_ENV === 'production' || process.env.RENDER || process.env.R
   https.globalAgent = new Agent({
     rejectUnauthorized: false,
     checkServerIdentity: () => undefined,
-    secureProtocol: 'TLSv1_2_method',
+    secureProtocol: 'TLS_method',
+    minVersion: 'TLSv1.2',
+    ciphers: [
+      'TLS_AES_128_GCM_SHA256',
+      'TLS_AES_256_GCM_SHA384',
+      'TLS_CHACHA20_POLY1305_SHA256',
+      'ECDHE-ECDSA-AES128-GCM-SHA256',
+      'ECDHE-ECDSA-AES256-GCM-SHA384',
+      'ECDHE-RSA-AES128-GCM-SHA256',
+      'ECDHE-RSA-AES256-GCM-SHA384'
+    ].join(':'),
     secureOptions: require('constants').SSL_OP_NO_SSLv2 | require('constants').SSL_OP_NO_SSLv3,
     timeout: 30000,
     keepAlive: true
   });
   
-  console.log('🔓 Production SSL bypass enabled for external API compatibility');
+  console.log('🔓 Production SSL bypass enabled for external API compatibility (TLS 1.2+ with ECDSA/RSA & TLS1.3 ciphers)');
 }
 
 // Override global fetch for Google Generative AI SDK with SSL bypass
@@ -76,16 +89,28 @@ if (process.env.NODE_ENV === 'production' || process.env.RENDER || process.env.R
   const customAgent = new https.Agent({
     rejectUnauthorized: false,
     checkServerIdentity: () => undefined,
-    secureProtocol: 'TLSv1_2_method',
+    secureProtocol: 'TLS_method',
+    minVersion: 'TLSv1.2',
+    ciphers: [
+      'TLS_AES_128_GCM_SHA256',
+      'TLS_AES_256_GCM_SHA384',
+      'TLS_CHACHA20_POLY1305_SHA256',
+      'ECDHE-ECDSA-AES128-GCM-SHA256',
+      'ECDHE-ECDSA-AES256-GCM-SHA384',
+      'ECDHE-RSA-AES128-GCM-SHA256',
+      'ECDHE-RSA-AES256-GCM-SHA384'
+    ].join(':'),
     timeout: 60000,
     keepAlive: true,
-    maxSockets: 50
+    maxSockets: 50,
+    // Force IPv4 to avoid potential IPv6 TLS handshake issues
+    lookup: (hostname, opts, cb) => dns.lookup(hostname, { family: 4 }, cb)
   });
   
   // Override fetch for Google AI API calls
   global.fetch = async (url, options = {}) => {
     if (typeof url === 'string' && url.includes('generativelanguage.googleapis.com')) {
-      console.log('🔓 Using SSL bypass for Google Generative AI API call');
+      console.log('🔓 Using SSL bypass for Google Generative AI API call with TLS 1.2+ and IPv4');
       
       // Use node-fetch with custom agent for Google AI API
       const fetch = require('node-fetch');
@@ -100,7 +125,7 @@ if (process.env.NODE_ENV === 'production' || process.env.RENDER || process.env.R
     return originalFetch ? originalFetch(url, options) : require('node-fetch')(url, options);
   };
   
-  console.log('🔓 Custom fetch with SSL bypass configured for Google AI API');
+  console.log('🔓 Custom fetch with SSL bypass configured for Google AI API (TLS 1.2+ with ECDSA/RSA & TLS1.3 ciphers, IPv4 forced)');
 }
 
 console.log('🔒 TLS configuration applied for external API connections');

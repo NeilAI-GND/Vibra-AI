@@ -52,6 +52,6 @@
   "author": "Vibra AI Team",
   "license": "MIT",
   "engines": {
-    "node": ">=16.0.0"
+    "node": "22.x"
   }
 }

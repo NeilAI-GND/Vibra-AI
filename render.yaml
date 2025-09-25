@@ -2,6 +2,7 @@ services:
   - type: web
     name: vibra-ai-backend
     env: node
+    runtime: node 22
     plan: free
     buildCommand: npm install && cd backend && npm install
     startCommand: npm start
