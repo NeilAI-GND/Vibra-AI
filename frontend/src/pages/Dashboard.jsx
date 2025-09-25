@@ -22,6 +22,44 @@ const Dashboard = () => {
   const [quota, setQuota] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Utility to normalize image URLs (handles missing leading slash)
+  const normalizeImageUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('http')) return url;
+    if (url.startsWith('/uploads/')) return url;
+    if (url.startsWith('uploads/')) return `/${url}`;
+    return url;
+  };
+
+  const getInitialImageSrc = (generation) => {
+    const candidate = generation?.imageUrls?.[0] || generation?.generatedImageUrl || '';
+    const normalized = normalizeImageUrl(candidate);
+    return normalized.startsWith('http') ? normalized : `/uploads/${normalized.replace(/^\/uploads\//, '')}`;
+  };
+
+  const handleImageError = (e, generation) => {
+    const img = e.currentTarget;
+    const attempts = Number(img.dataset.retry || 0);
+    const originalCandidate = generation?.imageUrls?.[0] || generation?.generatedImageUrl || '';
+    const pathname = originalCandidate.startsWith('http')
+      ? new URL(originalCandidate).pathname
+      : `/${originalCandidate.replace(/^\/?/, '')}`;
+
+    if (attempts === 0) {
+      img.src = `http://localhost:5000${pathname.startsWith('/uploads/') ? pathname : `/uploads/${pathname.replace(/^\/uploads\//, '')}`}`;
+      img.dataset.retry = '1';
+      return;
+    }
+
+    if (attempts === 1) {
+      img.src = `${pathname.startsWith('/uploads/') ? pathname : `/uploads/${pathname.replace(/^\/uploads\//, '')}`}`;
+      img.dataset.retry = '2';
+      return;
+    }
+
+    img.style.display = 'none';
+  };
+
   useEffect(() => {
     fetchDashboardData();
   }, []);
@@ -41,7 +79,13 @@ const Dashboard = () => {
         totalGenerations: s?.total?.generations ?? 0,
         successRate: s?.total?.successRate ?? 0
       });
-      setRecentGenerations(generationsRes.data.generations || []);
+      const gens = (generationsRes.data.generations || []).map((gen) => {
+        const urls = Array.isArray(gen.imageUrls) && gen.imageUrls.length > 0
+          ? gen.imageUrls
+          : (gen.generatedImageUrl ? [gen.generatedImageUrl] : []);
+        return { ...gen, imageUrls: urls };
+      });
+      setRecentGenerations(gens);
       // Quota endpoint returns { quota: { ... }, user: { ... } }
       setQuota(quotaRes?.data?.quota || null);
     } catch (error) {
@@ -83,13 +127,7 @@ const Dashboard = () => {
       color: 'from-blue-500 to-purple-600',
       disabled: quota?.generationsRemaining === 0
     },
-    {
-      name: 'View Gallery',
-      description: 'Browse your creations',
-      href: '/gallery',
-      icon: PhotoIcon,
-      color: 'from-green-500 to-teal-600'
-    },
+    // Removed 'View Gallery' quick action
     {
       name: 'Upgrade Plan',
       description: 'Get more generations',
@@ -258,12 +296,7 @@ const Dashboard = () => {
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
               Recent Generations
             </h2>
-            <Link
-              to="/gallery"
-              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm"
-            >
-              View all →
-            </Link>
+            {/* Gallery link removed */}
           </div>
           
           {recentGenerations.length > 0 ? (
@@ -276,9 +309,10 @@ const Dashboard = () => {
                   <div className="aspect-square bg-gray-100 dark:bg-gray-700">
                     {generation.imageUrls?.[0] ? (
                       <img
-                        src={generation.imageUrls[0]}
+                        src={getInitialImageSrc(generation)}
                         alt={generation.prompt}
                         className="w-full h-full object-cover"
+                        onError={(e) => handleImageError(e, generation)}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">

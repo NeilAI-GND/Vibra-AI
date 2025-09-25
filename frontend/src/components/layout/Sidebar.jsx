@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { userAPI } from '../../services/api';
+import quotaEvents from '../../utils/quotaEvents';
 import {
   HomeIcon,
   SparklesIcon,
-  PhotoIcon,
   UserIcon,
   CreditCardIcon,
   ChartBarIcon
@@ -12,7 +13,6 @@ import {
 import {
   HomeIcon as HomeIconSolid,
   SparklesIcon as SparklesIconSolid,
-  PhotoIcon as PhotoIconSolid,
   UserIcon as UserIconSolid,
   CreditCardIcon as CreditCardIconSolid,
   ChartBarIcon as ChartBarIconSolid
@@ -21,6 +21,29 @@ import {
 const Sidebar = () => {
   const { user, isPaidUser } = useAuth();
   const location = useLocation();
+  const [quota, setQuota] = useState(null);
+
+  // Fetch quota data
+  const fetchQuota = async () => {
+    try {
+      const response = await userAPI.getQuota();
+      setQuota(response.data.quota);
+    } catch (error) {
+      console.error('Error fetching quota:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchQuota();
+    }
+  }, [user]);
+
+  // Listen for quota update events
+  useEffect(() => {
+    const unsubscribe = quotaEvents.addListener(fetchQuota);
+    return unsubscribe;
+  }, []);
 
   const navigation = [
     {
@@ -36,13 +59,6 @@ const Sidebar = () => {
       icon: SparklesIcon,
       iconSolid: SparklesIconSolid,
       description: 'Create AI images'
-    },
-    {
-      name: 'Gallery',
-      href: '/gallery',
-      icon: PhotoIcon,
-      iconSolid: PhotoIconSolid,
-      description: 'Your creations'
     },
     {
       name: 'Profile',
@@ -162,13 +178,13 @@ const Sidebar = () => {
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600 dark:text-gray-400">Used</span>
                 <span className="font-medium text-gray-900 dark:text-white">
-                  0 / {user?.dailyLimit || 0}
+                  {quota ? `${quota.generationsUsed} / ${quota.generationsLimit}` : '0 / 0'}
                 </span>
               </div>
               <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
                 <div 
                   className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: '0%' }}
+                  style={{ width: `${quota?.usagePercentage || 0}%` }}
                 ></div>
               </div>
             </div>

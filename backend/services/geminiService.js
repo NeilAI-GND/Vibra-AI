@@ -19,9 +19,9 @@ class GeminiService {
         style = 'natural'
       } = options;
 
-      // Privacy-safe payload debug for text-only generation
+      // Privacy-safe payload debug for image generation
       try {
-        console.log('🔎 [GEMINI PAYLOAD DEBUG] Outgoing text-to-image request:', {
+        console.log('🔎 [GEMINI PAYLOAD DEBUG] Outgoing image generation request:', {
           promptLength: prompt ? prompt.length : 0,
           promptPreview: prompt ? `${prompt.substring(0, 80)}...` : undefined,
           options: { width, height, size, quality, style }

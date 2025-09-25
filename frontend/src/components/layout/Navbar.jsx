@@ -28,7 +28,7 @@ const Navbar = () => {
   const navigation = user ? [
     { name: 'Dashboard', href: '/dashboard', icon: '📊' },
     { name: 'Generate', href: '/generate', icon: '🎨' },
-    { name: 'Gallery', href: '/gallery', icon: '🖼️' },
+    // Gallery item removed
   ] : [
     { name: 'Home', href: '/', icon: '🏠' },
     { name: 'Pricing', href: '/pricing', icon: '💎' },

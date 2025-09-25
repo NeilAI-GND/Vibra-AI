@@ -11,7 +11,7 @@ import Footer from './components/layout/Footer';
 // Page components
 import Dashboard from './pages/Dashboard';
 import Generate from './pages/Generate';
-import Gallery from './pages/Gallery';
+// removed Gallery import
 import Profile from './pages/Profile';
 import Pricing from './pages/Pricing';
 import Login from './pages/Login';
@@ -47,7 +47,7 @@ function App() {
                   <Routes>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/generate" element={<Generate />} />
-              <Route path="/gallery" element={<Gallery />} />
+              {/* removed /gallery route */}
               <Route path="/profile" element={<Profile />} />
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/login" element={<Navigate to="/dashboard" replace />} />
@@ -71,7 +71,7 @@ function App() {
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/dashboard" element={<Navigate to="/login" replace />} />
             <Route path="/generate" element={<Navigate to="/login" replace />} />
-            <Route path="/gallery" element={<Navigate to="/login" replace />} />
+            {/* removed /gallery public redirect */}
             <Route path="/profile" element={<Navigate to="/login" replace />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

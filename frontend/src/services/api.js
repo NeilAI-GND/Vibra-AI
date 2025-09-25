@@ -135,7 +135,6 @@ export const userAPI = {
 
 export const generateAPI = {
   getPresets: () => api.get('/generate/presets'),
-  textToImage: (data) => api.post('/generate/text-to-image', data),
   imageToImage: (formData) => api.post('/generate/image-to-image', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',

@@ -65,7 +65,7 @@ const Pricing = () => {
                   </li>
                   <li className="flex items-center">
                     <CheckCircleIcon className="w-5 h-5 text-green-500 mr-3" />
-                    <span className="text-gray-700 dark:text-gray-300">Gallery management</span>
+                    <span className="text-gray-700 dark:text-gray-300">Image management</span>
                   </li>
                   <li className="flex items-center">
                     <CheckCircleIcon className="w-5 h-5 text-green-500 mr-3" />

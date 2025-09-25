@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { generateAPI, userAPI } from '../services/api';
+import toast from 'react-hot-toast';
+import quotaEvents from '../utils/quotaEvents';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import {
   SparklesIcon,
@@ -11,7 +13,6 @@ import {
   ClockIcon,
   CheckCircleIcon
 } from '@heroicons/react/24/outline';
-import { toast } from 'react-hot-toast';
 
 const Generate = () => {
   console.log('🔍 [DEBUG] Generate component is rendering');
@@ -22,7 +23,7 @@ const Generate = () => {
   const [selectedPreset, setSelectedPreset] = useState(null);
   const [presets, setPresets] = useState([]);
   const [uploadedImage, setUploadedImage] = useState(null);
-  const [generationType, setGenerationType] = useState('text-to-image');
+  const [generationType, setGenerationType] = useState('image-to-image');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState([]);
   const [error, setError] = useState('');
@@ -43,7 +44,12 @@ const Generate = () => {
   useEffect(() => {
     fetchPresets();
     fetchQuota();
+  }, []);
 
+  // Listen for quota update events
+  useEffect(() => {
+    const unsubscribe = quotaEvents.addListener(fetchQuota);
+    return unsubscribe;
   }, []);
 
   const fetchPresets = async () => {
@@ -78,7 +84,7 @@ const Generate = () => {
   const fetchQuota = async () => {
     try {
       const response = await userAPI.getQuota();
-      setQuota(response.data);
+      setQuota(response.data.quota);
     } catch (error) {
       console.error('Error fetching quota:', error);
     }
@@ -138,7 +144,6 @@ const Generate = () => {
 
   const removeUploadedImage = () => {
     setUploadedImage(null);
-    setGenerationType('text-to-image');
   };
 
   const handleGenerate = async () => {
@@ -152,7 +157,7 @@ const Generate = () => {
       return;
     }
 
-    if (generationType === 'image-to-image' && !uploadedImage) {
+    if (!uploadedImage) {
       setError('Please upload an image for image-to-image generation');
       return;
     }
@@ -161,77 +166,55 @@ const Generate = () => {
       setIsGenerating(true);
       setGeneratedImages([]);
 
-      let response;
+      console.log('🔍 [FRONTEND DEBUG] Making image-to-image API call');
+      const formData = new FormData();
       
-      if (generationType === 'text-to-image') {
-        console.log('🔍 [FRONTEND DEBUG] Making text-to-image API call with payload:', {
-          prompt: prompt?.slice(0, 200),
-          preset: selectedPreset?.id,
-          size: '1024x1024',
-          quality: 'standard',
-          style: 'vivid'
-        });
-        response = await generateAPI.textToImage({
-          prompt,
-          preset: selectedPreset?.id,
-          size: '1024x1024',
-          quality: 'standard',
-          style: 'vivid'
-        });
-        console.log('✅ [FRONTEND DEBUG] Text-to-image API response received:', response);
-      } else {
-        console.log('🔍 [FRONTEND DEBUG] Making image-to-image API call');
-        const formData = new FormData();
-        
-        // Convert base64 to blob for FormData
-        const base64Response = await fetch(uploadedImage);
-        const blob = await base64Response.blob();
-        
-        formData.append('image', blob, 'upload.jpg');
-        formData.append('prompt', prompt);
-        if (selectedPreset?.id) {
-          formData.append('preset', selectedPreset.id);
-        }
-        formData.append('size', '1024x1024');
-
-        const imageFile = formData.get('image');
-        console.log('🔍 [FRONTEND DEBUG] FormData prepared for image-to-image:', {
-          hasImage: formData.has('image'),
-          imageType: imageFile?.type,
-          imageSize: imageFile?.size,
-          promptPreview: formData.get('prompt')?.slice(0, 200),
-          preset: formData.get('preset'),
-          size: formData.get('size')
-        });
-
-        response = await generateAPI.imageToImage(formData);
-        console.log('✅ [FRONTEND DEBUG] Image-to-image API response received:', response);
+      // Convert base64 to blob for FormData
+      const base64Response = await fetch(uploadedImage);
+      const blob = await base64Response.blob();
+      
+      formData.append('image', blob, 'upload.jpg');
+      formData.append('prompt', prompt);
+      if (selectedPreset?.id) {
+        formData.append('preset', selectedPreset.id);
       }
+      formData.append('size', '1024x1024');
+
+      const imageFile = formData.get('image');
+      console.log('🔍 [FRONTEND DEBUG] FormData prepared for image-to-image:', {
+        hasImage: formData.has('image'),
+        imageType: imageFile?.type,
+        imageSize: imageFile?.size,
+        promptPreview: formData.get('prompt')?.slice(0, 200),
+        preset: formData.get('preset'),
+        size: formData.get('size')
+      });
+
+      const response = await generateAPI.imageToImage(formData);
+      console.log('✅ [FRONTEND DEBUG] Image-to-image API response received:', response);
 
       const resp = response?.data ?? {};
 
       if (resp.success || resp.message === 'Image generated successfully') {
-        // Post-process specifically for image-to-image to ensure we don't show the input as output
-        if (generationType === 'image-to-image') {
-          const outputUrl = resp.generation?.generatedImageUrl || resp.generation?.imageUrl;
-          const originalUrl = resp.generation?.originalImageUrl;
-          const echoed =
-            resp.echoedInput === true ||
-            (!!outputUrl && !!originalUrl && outputUrl === originalUrl);
-        
-          if (!outputUrl) {
-            console.error('❌ [FRONTEND DEBUG] Image-to-image returned empty result. Full response:', resp);
-            setError('Image generation returned no result. Please try again.');
-            setIsGenerating(false);
-            return;
-          }
-        
-          if (echoed) {
-            console.warn('⚠️ [FRONTEND DEBUG] Output image identical to input (echo). Logging full API response:', resp);
-            setError('The AI returned the original image unchanged. Try a different prompt or preset.');
-            setIsGenerating(false);
-            return; // Do not show the input image as a generated result
-          }
+        // Post-process for image-to-image to ensure we don't show the input as output
+        const outputUrl = resp.generation?.generatedImageUrl || resp.generation?.imageUrl;
+        const originalUrl = resp.generation?.originalImageUrl;
+        const echoed =
+          resp.echoedInput === true ||
+          (!!outputUrl && !!originalUrl && outputUrl === originalUrl);
+      
+        if (!outputUrl) {
+          console.error('❌ [FRONTEND DEBUG] Image-to-image returned empty result. Full response:', resp);
+          setError('Image generation returned no result. Please try again.');
+          setIsGenerating(false);
+          return;
+        }
+      
+        if (echoed) {
+          console.warn('⚠️ [FRONTEND DEBUG] Output image identical to input (echo). Logging full API response:', resp);
+          setError('The AI returned the original image unchanged. Try a different prompt or preset.');
+          setIsGenerating(false);
+          return; // Do not show the input image as a generated result
         }
         const images = resp.images || [resp.generation?.generatedImageUrl || resp.generation?.imageUrl];
         console.log('✅ [FRONTEND DEBUG] Generation successful, images:', images);
@@ -239,17 +222,13 @@ const Generate = () => {
         
         // Refresh quota after successful generation
         await fetchQuota();
+        // Notify other components to refresh their quota displays
+        quotaEvents.emit();
         
-        // Show success message with gallery link
+        // Show success message after generation
         toast.success(
           <div>
             <p>Image generated successfully!</p>
-            <button 
-              onClick={() => window.location.href = '/gallery'}
-              className="mt-2 text-blue-600 hover:text-blue-800 underline"
-            >
-              View in Gallery →
-            </button>
           </div>,
           { duration: 5000 }
         );
@@ -399,45 +378,21 @@ const Generate = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Generation Form */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Generation Type */}
+            {/* Generation Type - Image to Image Only */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                Generation Type
+                Image to Image Generation
               </h3>
-              <div className="grid grid-cols-2 gap-4">
-                <button
-                  onClick={() => setGenerationType('text-to-image')}
-                  className={`p-4 rounded-lg border-2 transition-all duration-200 ${
-                    generationType === 'text-to-image'
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                      : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                  }`}
-                >
-                  <SparklesIcon className="w-8 h-8 mx-auto mb-2 text-blue-600" />
-                  <h4 className="font-medium text-gray-900 dark:text-white">Text to Image</h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                    Generate from text description
-                  </p>
-                </button>
-                <button
-                  onClick={() => setGenerationType('image-to-image')}
-                  className={`p-4 rounded-lg border-2 transition-all duration-200 ${
-                    generationType === 'image-to-image'
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                      : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                  }`}
-                >
-                  <PhotoIcon className="w-8 h-8 mx-auto mb-2 text-purple-600" />
-                  <h4 className="font-medium text-gray-900 dark:text-white">Image to Image</h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                    Transform existing image
-                  </p>
-                </button>
+              <div className="p-4 rounded-lg border-2 border-blue-500 bg-blue-50 dark:bg-blue-900/20">
+                <PhotoIcon className="w-8 h-8 mx-auto mb-2 text-purple-600" />
+                <h4 className="font-medium text-gray-900 dark:text-white text-center">Image to Image</h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 text-center">
+                  Transform existing images with AI
+                </p>
               </div>
             </div>
 
-            {/* Image Upload (for image-to-image) */}
-            {generationType === 'image-to-image' && (
+            {/* Image Upload */}
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
                   Upload Reference Image
@@ -478,7 +433,6 @@ const Generate = () => {
                   className="hidden"
                 />
               </div>
-            )}
 
             {/* Prompt Input */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">

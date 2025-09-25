@@ -59,11 +59,23 @@ router.get('/generations', auth, asyncHandler(async (req, res) => {
   if (sortBy === 'prompt') sortOption = { prompt: 1 };
 
   // Get generations with pagination
-  const generations = await Generation.find(filter)
+  const generationsDocs = await Generation.find(filter)
     .sort(sortOption)
     .limit(limit * 1)
     .skip((page - 1) * limit)
     .populate('userId', 'firstName lastName email');
+
+  // Ensure virtuals are included (imageUrls, preset) and provide robust fallback
+  const generations = generationsDocs.map((doc) => {
+    const obj = doc.toObject({ virtuals: true });
+    if (!Array.isArray(obj.imageUrls) || obj.imageUrls.length === 0) {
+      obj.imageUrls = obj.generatedImageUrl ? [obj.generatedImageUrl] : [];
+    }
+    if (!obj.preset && obj.presetUsed) {
+      obj.preset = { name: obj.presetUsed };
+    }
+    return obj;
+  });
 
   // Get total count for pagination
   const total = await Generation.countDocuments(filter);
