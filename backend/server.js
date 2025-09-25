@@ -50,7 +50,7 @@ tls.DEFAULT_MIN_VERSION = 'TLSv1.2';
 https.globalAgent.options.secureOptions = require('constants').SSL_OP_NO_SSLv2 | require('constants').SSL_OP_NO_SSLv3;
 
 // Additional SSL bypass for production environments (Render, Heroku, etc.)
-if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
+if (process.env.NODE_ENV === 'production' || process.env.RENDER || process.env.RENDER_SERVICE_ID) {
   // Override default HTTPS agent for production SSL issues
   const Agent = require('https').Agent;
   const originalAgent = https.globalAgent;
@@ -65,6 +65,42 @@ if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
   });
   
   console.log('🔓 Production SSL bypass enabled for external API compatibility');
+}
+
+// Override global fetch for Google Generative AI SDK with SSL bypass
+if (process.env.NODE_ENV === 'production' || process.env.RENDER || process.env.RENDER_SERVICE_ID) {
+  const originalFetch = global.fetch;
+  const https = require('https');
+  
+  // Create a custom HTTPS agent with SSL bypass
+  const customAgent = new https.Agent({
+    rejectUnauthorized: false,
+    checkServerIdentity: () => undefined,
+    secureProtocol: 'TLSv1_2_method',
+    timeout: 60000,
+    keepAlive: true,
+    maxSockets: 50
+  });
+  
+  // Override fetch for Google AI API calls
+  global.fetch = async (url, options = {}) => {
+    if (typeof url === 'string' && url.includes('generativelanguage.googleapis.com')) {
+      console.log('🔓 Using SSL bypass for Google Generative AI API call');
+      
+      // Use node-fetch with custom agent for Google AI API
+      const fetch = require('node-fetch');
+      return fetch(url, {
+        ...options,
+        agent: customAgent,
+        timeout: 60000
+      });
+    }
+    
+    // Use original fetch for other requests
+    return originalFetch ? originalFetch(url, options) : require('node-fetch')(url, options);
+  };
+  
+  console.log('🔓 Custom fetch with SSL bypass configured for Google AI API');
 }
 
 console.log('🔒 TLS configuration applied for external API connections');

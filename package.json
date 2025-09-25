@@ -32,5 +32,8 @@
   "render": {
     "buildCommand": "npm install && cd backend && npm install",
     "startCommand": "npm start"
+  },
+  "dependencies": {
+    "node-fetch": "^2.7.0"
   }
 }
