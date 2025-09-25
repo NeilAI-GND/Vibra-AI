@@ -1,5 +1,5 @@
 [build]
-  command = "cd frontend && npm install && npx vite build --config vite.config.simple.js"
+  command = "cd frontend && npm ci && npm run build:simple"
   publish = "netlify-build"
 
 [functions]
@@ -17,3 +17,4 @@
 
 [build.environment]
   NODE_VERSION = "18"
+  NPM_FLAGS = "--production=false"
