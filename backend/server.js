@@ -211,26 +211,59 @@ module.exports = app;
 if (process.env.NODE_ENV === 'production' || process.env.RENDER || process.env.RENDER_SERVICE_ID) {
   const originalFetch = global.fetch;
   const dns = require('dns');
+  const { constants } = require('crypto');
 
-  const customAgent = new https.Agent({
+  const primaryAgent = new https.Agent({
     keepAlive: true,
     timeout: 60000,
     maxSockets: 50,
     // Force IPv4 to avoid potential IPv6 handshake/routing issues on some platforms
-    lookup: (hostname, opts, cb) => dns.lookup(hostname, { family: 4 }, cb)
+    lookup: (hostname, opts, cb) => dns.lookup(hostname, { family: 4 }, cb),
+    // Prefer modern TLS
+    maxVersion: 'TLSv1.3',
+    minVersion: 'TLSv1.2'
+  });
+
+  const fallbackAgent = new https.Agent({
+    keepAlive: true,
+    timeout: 60000,
+    maxSockets: 50,
+    lookup: (hostname, opts, cb) => dns.lookup(hostname, { family: 4 }, cb),
+    // Explicitly allow TLSv1.2 only as fallback
+    maxVersion: 'TLSv1.2',
+    minVersion: 'TLSv1.2',
+    // Conservative cipher suite for compatibility
+    ciphers: [
+      'TLS_AES_128_GCM_SHA256',
+      'TLS_AES_256_GCM_SHA384',
+      'TLS_CHACHA20_POLY1305_SHA256',
+      'ECDHE-ECDSA-AES128-GCM-SHA256',
+      'ECDHE-RSA-AES128-GCM-SHA256',
+      'ECDHE-ECDSA-AES256-GCM-SHA384',
+      'ECDHE-RSA-AES256-GCM-SHA384'
+    ].join(':'),
+    honorCipherOrder: true
   });
 
   global.fetch = async (url, options = {}) => {
-    if (typeof url === 'string' && url.includes('generativelanguage.googleapis.com')) {
+    const isGoogleAI = typeof url === 'string' && url.includes('generativelanguage.googleapis.com');
+    if (isGoogleAI) {
       const fetch = require('node-fetch');
-      return fetch(url, {
-        ...options,
-        agent: customAgent,
-        timeout: 60000
-      });
+      try {
+        return await fetch(url, { ...options, agent: primaryAgent, timeout: 60000 });
+      } catch (err) {
+        const msg = err && (err.message || '');
+        const code = err && err.code;
+        const sslLike = msg.includes('SSL') || msg.includes('TLS') || code === 'ECONNRESET' || code === 'ENOTFOUND';
+        if (sslLike) {
+          console.warn('🔒 [TLS RETRY] Primary agent failed, retrying with TLSv1.2 fallback for Google AI:', msg);
+          return await fetch(url, { ...options, agent: fallbackAgent, timeout: 60000 });
+        }
+        throw err;
+      }
     }
     return originalFetch ? originalFetch(url, options) : require('node-fetch')(url, options);
   };
 
-  console.log('🔒 Targeted HTTPS agent applied for Google AI API (IPv4, keep-alive). No global TLS overrides.');
+  console.log('🔒 Targeted HTTPS agent applied for Google AI API (IPv4, keep-alive, TLS fallback). No global TLS overrides.');
 }

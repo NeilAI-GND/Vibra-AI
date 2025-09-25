@@ -1,8 +1,8 @@
 {
   "version": 2,
   "name": "vibra-ai",
-  "installCommand": "npm ci && npm ci --prefix frontend",
-  "buildCommand": "cd frontend && node node_modules/vite/bin/vite.js build",
+  "installCommand": "npm ci && cd frontend && npm ci",
+  "buildCommand": "cd frontend && node ./scripts/build.mjs",
   "outputDirectory": "frontend/dist",
   "devCommand": "npm run dev",
   "framework": null,
