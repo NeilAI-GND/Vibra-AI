@@ -2,7 +2,7 @@
 builder = "nixpacks"
 
 [build.buildCommand]
-value = "npm ci && cd frontend && rm -rf node_modules package-lock.json && npm install && npm run build"
+value = "npm ci && cd frontend && rm -rf node_modules package-lock.json && npm install --legacy-peer-deps --force && npm rebuild && npx vite build --config vite.config.railway.js"
 
 [deploy]
 startCommand = "npm start"
@@ -13,3 +13,5 @@ restartPolicyMaxRetries = 3
 
 [env]
 NODE_ENV = "production"
+NPM_CONFIG_LEGACY_PEER_DEPS = "true"
+NPM_CONFIG_OPTIONAL = "true"
