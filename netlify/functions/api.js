@@ -3,6 +3,12 @@ const serverless = require('serverless-http');
 const cors = require('cors');
 const path = require('path');
 
+// Load environment variables
+require('dotenv').config();
+
+// Import database connection
+const connectDB = require('../../backend/config/database');
+
 // Import backend routes
 const authRoutes = require('../../backend/routes/auth');
 const generateRoutes = require('../../backend/routes/generate');
@@ -15,13 +21,29 @@ const securityMiddleware = require('../../backend/middleware/security');
 
 const app = express();
 
+// Initialize database connection for serverless
+let isConnected = false;
+
+const initializeDatabase = async () => {
+  if (!isConnected) {
+    try {
+      await connectDB();
+      isConnected = true;
+      console.log('Database connected for serverless function');
+    } catch (error) {
+      console.error('Database connection failed:', error);
+      throw error;
+    }
+  }
+};
+
 // Apply security middleware
 app.use(securityMiddleware);
 
 // CORS configuration
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://your-netlify-app.netlify.app'] // Replace with your actual Netlify URL
+    ? true // Allow all origins for Netlify deployment
     : ['http://localhost:3000', 'http://127.0.0.1:3000'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -49,5 +71,14 @@ app.get('/health', (req, res) => {
 // Error handling
 app.use(errorHandler);
 
-// Export the serverless function
-module.exports.handler = serverless(app);
+// Wrap the app with database initialization
+const handler = serverless(app);
+
+// Export the serverless function with database initialization
+module.exports.handler = async (event, context) => {
+  // Initialize database connection
+  await initializeDatabase();
+  
+  // Handle the request
+  return handler(event, context);
+};
