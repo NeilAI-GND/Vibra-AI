@@ -1,5 +1,5 @@
 const express = require('express');
-const promptMatcher = require('../services/PromptMatcher');
+const promptMatcher = require('../services/promptMatcher');
 
 const router = express.Router();
 
