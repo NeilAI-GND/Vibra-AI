@@ -36,6 +36,11 @@ const userSchema = new mongoose.Schema({
     enum: ['free', 'paid'],
     default: 'free'
   },
+  role: {
+    type: String,
+    enum: ['user', 'admin'],
+    default: 'user'
+  },
   isActive: {
     type: Boolean,
     default: true
@@ -47,6 +52,13 @@ const userSchema = new mongoose.Schema({
   profileImage: {
     type: String,
     default: null
+  },
+  loginAttempts: {
+    type: Number,
+    default: 0
+  },
+  lockUntil: {
+    type: Date
   }
 }, {
   timestamps: true,

@@ -1,5 +1,6 @@
 const express = require('express');
 const { auth, requirePaidTier, requireAdmin } = require('../middleware/auth');
+const { uploadRateLimit } = require('../middleware/security');
 const { asyncHandler } = require('../middleware/errorHandler');
 const User = require('../models/User');
 const Quota = require('../models/Quota');

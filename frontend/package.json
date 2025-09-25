@@ -2,6 +2,7 @@
   "name": "vibra-ai-frontend",
   "version": "1.0.0",
   "description": "Frontend React application for Vibra AI",
+  "type": "module",
   "private": true,
   "dependencies": {
     "@heroicons/react": "^2.2.0",

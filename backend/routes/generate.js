@@ -1,6 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const { auth } = require('../middleware/auth');
+const { generationRateLimit, uploadRateLimit } = require('../middleware/security');
 const { upload, processImage } = require('../middleware/upload');
 const { asyncHandler } = require('../middleware/errorHandler');
 const User = require('../models/User');
@@ -151,7 +152,7 @@ router.get('/presets', auth, asyncHandler(async (req, res) => {
 // Text-to-image route removed - only image-to-image generation is supported
 
 // Image-to-image generation
-router.post('/image-to-image', auth, upload, processImage, async (req, res) => {
+router.post('/image-to-image', uploadRateLimit, generationRateLimit, auth, upload, processImage, async (req, res) => {
   console.log('🔍 [BACKEND DEBUG] Image-to-image route called');
   
   try {

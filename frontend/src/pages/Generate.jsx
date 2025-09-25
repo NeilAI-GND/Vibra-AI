@@ -9,7 +9,6 @@ import {
   PhotoIcon,
   ArrowUpTrayIcon,
   XMarkIcon,
-  AdjustmentsHorizontalIcon,
   ClockIcon,
   CheckCircleIcon
 } from '@heroicons/react/24/outline';
@@ -29,14 +28,7 @@ const Generate = () => {
   const [error, setError] = useState('');
   const [uploadError, setUploadError] = useState('');
   const [quota, setQuota] = useState(null);
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [settings, setSettings] = useState({
-    width: 1024,
-    height: 1024,
-    steps: 20,
-    guidance: 7.5,
-    seed: -1
-  });
+
   const fileInputRef = useRef(null);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -432,6 +424,13 @@ const Generate = () => {
                   onChange={handleImageUpload}
                   className="hidden"
                 />
+                
+                {/* Image Dimension Information */}
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                    <strong>Important:</strong> Please ensure the uploaded image matches your desired output size, as this app will generate results with the same dimensions as the input image. Verify the image dimensions before proceeding.
+                  </p>
+                </div>
               </div>
 
             {/* Prompt Input */}
@@ -467,110 +466,11 @@ const Generate = () => {
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Prompt (auto-filled from selected category)
-                  </label>
-                  <textarea
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    placeholder="Prompt is auto-filled from the selected category..."
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                    rows={4}
-                    readOnly
-                    disabled
-                    title="Prompt is auto-filled from the selected category"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Negative Prompt (Optional)
-                  </label>
-                  <textarea
-                    value={negativePrompt}
-                    onChange={(e) => setNegativePrompt(e.target.value)}
-                    placeholder="blurry, low quality, distorted..."
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                    rows={2}
-                  />
-                </div>
+
               </div>
             </div>
 
-            {/* Advanced Settings */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-              <button
-                onClick={() => setShowAdvanced(!showAdvanced)}
-                className="flex items-center justify-between w-full text-left"
-              >
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                  Advanced Settings
-                </h3>
-                <AdjustmentsHorizontalIcon className={`w-5 h-5 text-gray-400 transition-transform ${
-                  showAdvanced ? 'rotate-90' : ''
-                }`} />
-              </button>
 
-              {showAdvanced && (
-                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Width
-                    </label>
-                    <input
-                      type="number"
-                      value={settings.width}
-                      onChange={(e) => setSettings(prev => ({ ...prev, width: parseInt(e.target.value) || 0 }))}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Height
-                    </label>
-                    <input
-                      type="number"
-                      value={settings.height}
-                      onChange={(e) => setSettings(prev => ({ ...prev, height: parseInt(e.target.value) || 0 }))}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Steps
-                    </label>
-                    <input
-                      type="number"
-                      value={settings.steps}
-                      onChange={(e) => setSettings(prev => ({ ...prev, steps: parseInt(e.target.value) || 0 }))}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Guidance
-                    </label>
-                    <input
-                      type="number"
-                      value={settings.guidance}
-                      onChange={(e) => setSettings(prev => ({ ...prev, guidance: parseFloat(e.target.value) || 0 }))}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Seed
-                    </label>
-                    <input
-                      type="number"
-                      value={settings.seed}
-                      onChange={(e) => setSettings(prev => ({ ...prev, seed: parseInt(e.target.value) || 0 }))}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
 
             {/* Generate Button */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">

@@ -1,8 +1,10 @@
 const express = require('express');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
-const { auth } = require('../middleware/auth');
+const { auth, authRateLimit, accountLockout, recordFailedLogin, clearLoginAttempts } = require('../middleware/auth');
+const { passwordChangeRateLimit } = require('../middleware/security');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 const router = express.Router();
@@ -19,22 +21,34 @@ const generateToken = (userId) => {
 // @route   POST /api/auth/register
 // @desc    Register a new user
 // @access  Public
-router.post('/register', [
+router.post('/register', authRateLimit, [
   body('email')
     .isEmail()
     .normalizeEmail()
-    .withMessage('Please provide a valid email'),
+    .withMessage('Please provide a valid email')
+    .custom(async (email) => {
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+        throw new Error('Email already in use');
+      }
+    }),
   body('password')
-    .isLength({ min: 6 })
-    .withMessage('Password must be at least 6 characters long'),
+    .isLength({ min: 8 })
+    .withMessage('Password must be at least 8 characters long')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+    .withMessage('Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'),
   body('firstName')
     .trim()
     .isLength({ min: 1, max: 50 })
-    .withMessage('First name is required and must be less than 50 characters'),
+    .withMessage('First name is required and must be less than 50 characters')
+    .matches(/^[a-zA-Z\s]+$/)
+    .withMessage('First name can only contain letters and spaces'),
   body('lastName')
     .trim()
     .isLength({ min: 1, max: 50 })
     .withMessage('Last name is required and must be less than 50 characters')
+    .matches(/^[a-zA-Z\s]+$/)
+    .withMessage('Last name can only contain letters and spaces')
 ], asyncHandler(async (req, res) => {
   // Check for validation errors
   const errors = validationResult(req);
@@ -97,13 +111,13 @@ router.post('/register', [
 // @route   POST /api/auth/login
 // @desc    Login user
 // @access  Public
-router.post('/login', [
+router.post('/login', authRateLimit, accountLockout, [
   body('email')
     .isEmail()
     .normalizeEmail()
     .withMessage('Please provide a valid email'),
   body('password')
-    .notEmpty()
+    .exists()
     .withMessage('Password is required')
 ], asyncHandler(async (req, res) => {
   // Check for validation errors
@@ -121,6 +135,7 @@ router.post('/login', [
     // Find user and include password for comparison
     const user = await User.findByEmail(email).select('+password');
     if (!user) {
+      await recordFailedLogin(email);
       return res.status(401).json({
         error: 'Invalid email or password'
       });
@@ -136,10 +151,14 @@ router.post('/login', [
     // Check password
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
+      await recordFailedLogin(email);
       return res.status(401).json({
         error: 'Invalid email or password'
       });
     }
+
+    // Clear login attempts on successful login
+    await clearLoginAttempts(user._id);
 
     // Generate token
     const token = generateToken(user._id);
@@ -255,13 +274,21 @@ router.put('/profile', auth, [
 // @route   PUT /api/auth/password
 // @desc    Change user password
 // @access  Private
-router.put('/password', auth, [
+router.put('/password', passwordChangeRateLimit, auth, [
   body('currentPassword')
     .notEmpty()
     .withMessage('Current password is required'),
   body('newPassword')
-    .isLength({ min: 6 })
-    .withMessage('New password must be at least 6 characters long')
+    .isLength({ min: 8 })
+    .withMessage('New password must be at least 8 characters long')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+    .withMessage('New password must contain at least one uppercase letter, one lowercase letter, one number, and one special character')
+    .custom((value, { req }) => {
+      if (value === req.body.currentPassword) {
+        throw new Error('New password must be different from current password');
+      }
+      return true;
+    })
 ], asyncHandler(async (req, res) => {
   // Check for validation errors
   const errors = validationResult(req);
