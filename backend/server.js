@@ -13,6 +13,11 @@ const https = require('https');
 const tls = require('tls');
 require('dotenv').config();
 
+// Aggressive SSL bypass for Node.js environment (for production SSL issues)
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+process.env.HTTPS_PROXY = '';
+process.env.HTTP_PROXY = '';
+
 // Configure TLS settings to handle SSL issues with external APIs (Google Generative AI)
 // This addresses the SSL error: tlsv1 alert internal error
 const originalCreateSecureContext = tls.createSecureContext;
@@ -29,15 +34,38 @@ tls.createSecureContext = function(options) {
 
 // Configure HTTPS global agent for better SSL/TLS handling
 https.globalAgent.options.secureProtocol = 'TLSv1_2_method';
+https.globalAgent.options.rejectUnauthorized = false;
+https.globalAgent.options.checkServerIdentity = () => undefined;
 https.globalAgent.options.ciphers = [
   'ECDHE-RSA-AES128-GCM-SHA256',
   'ECDHE-RSA-AES256-GCM-SHA384',
   'ECDHE-RSA-AES128-SHA256',
-  'ECDHE-RSA-AES256-SHA384'
+  'ECDHE-RSA-AES256-SHA384',
+  'AES128-GCM-SHA256',
+  'AES256-GCM-SHA384'
 ].join(':');
 
-// Set minimum TLS version
+// Set minimum TLS version and additional SSL options
 tls.DEFAULT_MIN_VERSION = 'TLSv1.2';
+https.globalAgent.options.secureOptions = require('constants').SSL_OP_NO_SSLv2 | require('constants').SSL_OP_NO_SSLv3;
+
+// Additional SSL bypass for production environments (Render, Heroku, etc.)
+if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
+  // Override default HTTPS agent for production SSL issues
+  const Agent = require('https').Agent;
+  const originalAgent = https.globalAgent;
+  
+  https.globalAgent = new Agent({
+    rejectUnauthorized: false,
+    checkServerIdentity: () => undefined,
+    secureProtocol: 'TLSv1_2_method',
+    secureOptions: require('constants').SSL_OP_NO_SSLv2 | require('constants').SSL_OP_NO_SSLv3,
+    timeout: 30000,
+    keepAlive: true
+  });
+  
+  console.log('🔓 Production SSL bypass enabled for external API compatibility');
+}
 
 console.log('🔒 TLS configuration applied for external API connections');
 
